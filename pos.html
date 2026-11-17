@@ -177,6 +177,7 @@ async function entrar(){
   }
 }
 async function abrir(online){
+  reiniciarInactividad();
   $('login').style.display='none'; $('app').style.display='block'; $('clave').value='';
   pintarProds(); renderCart(); estado();
   if(online){ await syncAll(); }
