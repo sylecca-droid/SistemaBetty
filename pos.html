@@ -52,8 +52,8 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 #scan .box{background:#fff;border-radius:15px;padding:16px;max-width:420px;width:100%;text-align:center}
 #vid{width:100%;max-height:55vh;background:#000;border-radius:10px;object-fit:cover}
 #toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#20242b;color:#fff;border-radius:10px;padding:11px 16px;display:none;z-index:99;max-width:90%}
-#modal{position:fixed;inset:0;background:rgba(8,18,40,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:15px}
-#modal .box{background:#fff;border-radius:15px;padding:22px;max-width:380px;width:100%;text-align:center}
+#modal,#hist{position:fixed;inset:0;background:rgba(8,18,40,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:15px}
+#modal .box,#hist .box{background:#fff;border-radius:15px;padding:22px;max-width:380px;width:100%;text-align:center}
 </style></head><body>
 
 <div id="login"><div class="lbox">
@@ -69,6 +69,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
     <h1>🛒 Punto de venta · Betty</h1>
     <div class="st" id="st"><span class="dot"></span><span id="stT">En línea</span></div>
     <button id="pend" onclick="verPendientes()"></button>
+    <button class="btn" onclick="abrirHist()">🧾 Ventas</button>
     <button class="btn" onclick="syncAll(true)">🔄 Sincronizar</button>
     <button class="btn" onclick="salir()">Salir</button>
   </header>
@@ -99,8 +100,13 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   <div id="mNum" style="font-size:32px;font-weight:800;color:var(--p);margin:6px 0"></div>
   <div id="mTot" style="font-size:20px;font-weight:700"></div>
   <div id="mNota" style="font-size:12px;color:var(--m);margin:8px 0"></div>
-  <button class="btn pri" onclick="imprimir(S.ult)">🖨 Imprimir ticket</button>
+  <button class="btn pri" onclick="imprimir(S.ult)">🖨 Imprimir</button>
+  <button class="btn" style="background:#25D366;border-color:#25D366;color:#fff" onclick="whatsapp(S.ult)">📱 WhatsApp</button>
   <button class="btn" onclick="$('modal').style.display='none'">Cerrar</button>
+</div></div>
+<div id="hist" style="display:none"><div class="box" style="max-height:85vh;overflow:auto;text-align:left">
+  <h3 style="margin:0 0 8px">🧾 Últimas ventas</h3><div id="histL"></div>
+  <button class="btn" style="width:100%;margin-top:10px" onclick="$('hist').style.display='none'">Cerrar</button>
 </div></div>
 <div id="scan"><div class="box">
   <h3 style="margin:0 0 10px">📷 Leer código de barras</h3>
@@ -115,7 +121,7 @@ const API = "https://script.google.com/macros/s/AKfycbz08by4XWqXWVn4FSGzASvx3Q5Q
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
-const S = { user:null, inv:[], q:[], cart:[], busy:false, ult:null };
+const S = { user:null, inv:[], q:[], cart:[], busy:false, ult:null, hist:[] };
 
 /* ---------- Almacenamiento local (IndexedDB) ---------- */
 function idb(){ return new Promise((ok,no)=>{ const r=indexedDB.open('betty',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); }); }
@@ -137,6 +143,7 @@ function toast(m){ const e=$('toast'); e.textContent=m; e.style.display='block';
 async function init(){
   S.q = (await kvGet('q')) || [];
   S.inv = (await kvGet('inv')) || [];
+  S.hist = (await kvGet('hist')) || [];
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
   let tipos = (await kvGet('tipos')) || [];
   if(navigator.onLine){
@@ -207,7 +214,7 @@ async function syncAll(manual){
       try{ r=await api({accion:'venta',sync:S.user.sync,idLocal:q.id,fechaLocal:q.fecha,payload:q.payload}); }
       catch(e){ return; }                                   // sin red: se reintenta luego
       if(r.auth){ toast(r.error); return; }
-      if(r.ok){ q.ticket.num=r.numVenta; S.q=S.q.filter(x=>x.id!==q.id); }
+      if(r.ok){ q.ticket.num=r.numVenta; const h=S.hist.find(x=>x.id===q.id); if(h){ h.num=r.numVenta; await kvSet('hist',S.hist); } S.q=S.q.filter(x=>x.id!==q.id); }
       else { q.error=r.error||'Error desconocido'; }
       await kvSet('q',S.q); estado();
     }
@@ -288,6 +295,7 @@ async function registrar(){
   };
   // Descontar stock en el equipo
   S.cart.forEach(x=>{ const p=S.inv.find(y=>String(y.ID||y.COD||y['Código Barras'])===x.id); if(p) p.Stock=Math.max(0,(Number(p.Stock)||0)-x.cant); });
+  q.ticket.id=q.id; S.hist.unshift(q.ticket); S.hist=S.hist.slice(0,20); await kvSet('hist',S.hist);
   S.q.push(q); await kvSet('q',S.q); await kvSet('inv',S.inv);
   S.cart=[]; $('desc').value=''; $('efe').value=''; $('cli').value='';
   renderCart(); pintarProds(); estado();
@@ -300,20 +308,77 @@ async function registrar(){
   imprimir(q.ticket);
 }
 
-/* ---------- Ticket ---------- */
+/* ---------- Ticket (igual al del sistema original) ---------- */
+function fechaTxt(v){
+  return new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v.fecha)).replace(',',' –');
+}
 function imprimir(v){
   if(!v) return;
-  const f=new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v.fecha)).replace(',',' –');
-  const filas=v.items.map(i=>`<tr><td colspan="3" style="font-weight:900;padding-top:5px">${esc(i.nombre)}</td></tr><tr><td style="text-align:center">${i.cant}</td><td style="text-align:right">S/ ${fmt(i.precio)}</td><td style="text-align:right;font-weight:bold">S/ ${fmt(i.total)}</td></tr><tr><td colspan="3" style="border-bottom:1px solid #000;height:4px"></td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ticket ${esc(v.num)}</title><style>@page{size:80mm auto;margin:0}body{width:72mm;margin:0 auto;padding:5mm 0;font:10.5px Arial,sans-serif;color:#000}table{width:100%;border-collapse:collapse}.c{text-align:center}</style></head><body>
-  <div class="c"><div style="font-size:17px;font-weight:900">TELECOMUNICACIONES BETTY</div><div style="font-weight:bold">SISTEMA DE VENTAS</div><div>Gracias por preferirnos</div></div>
-  <p><b>VENTA N.°:</b> ${esc(v.num)}<br><b>FECHA:</b> ${esc(f)}<br><b>CLIENTE:</b> ${esc(v.cliente)}</p><hr style="border:0;border-top:1px dashed #000">
-  <table><tr><th>CANT.</th><th style="text-align:right">P. UNIT.</th><th style="text-align:right">IMPORTE</th></tr>${filas}</table>
-  <table style="margin-top:6px"><tr><td>SUBTOTAL</td><td style="text-align:right">S/ ${fmt(v.subtotal)}</td></tr>${v.descuento>0?`<tr><td>DESCUENTO</td><td style="text-align:right">- S/ ${fmt(v.descuento)}</td></tr>`:''}<tr><td style="font-size:17px;font-weight:900;border-top:2px solid #000">TOTAL</td><td style="text-align:right;font-size:18px;font-weight:900;border-top:2px solid #000">S/ ${fmt(v.total)}</td></tr></table>
-  <p class="c" style="font-weight:900;font-size:12px">¡GRACIAS POR SU COMPRA!</p></body></html>`;
+  const filas=v.items.map(i=>`<tr><td colspan="3" class="producto-nombre">${esc(i.nombre)}</td></tr>
+    <tr class="producto-detalle"><td class="cantidad">${i.cant}</td><td class="precio">S/ ${fmt(i.precio)}</td><td class="importe">S/ ${fmt(i.total)}</td></tr>
+    <tr class="producto-separador"><td colspan="3"></td></tr>`).join('');
+  const fd=v.descuento>0?`<tr class="fila-descuento"><td>DESCUENTO</td><td class="right descuento-monto">- S/ ${fmt(v.descuento)}</td></tr>`:'';
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ticket #${esc(v.num)}</title><style>
+@page{size:80mm auto;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;width:80mm;background:#fff;color:#000}
+body{width:72mm;margin:0 auto;padding:5mm 0;font-family:Arial,Helvetica,sans-serif;font-size:10.5px;line-height:1.25}
+.encabezado{text-align:center;margin-bottom:8px}.empresa{font-size:17px;font-weight:900;letter-spacing:.4px;margin-bottom:3px}
+.sistema{font-size:11px;font-weight:bold;letter-spacing:1px}.preferencia{font-size:10px;margin-top:4px}
+.info{margin-top:9px;font-size:10px}.info-fila{display:flex;justify-content:space-between;gap:8px;margin:3px 0}.info-label{font-weight:900}
+.cliente{margin-top:6px;padding-top:6px;border-top:1px dashed #000}.cliente-nombre{margin-top:2px;font-weight:bold;word-break:break-word;text-transform:uppercase}
+.linea{border-top:1px dashed #000;margin:8px 0}.linea-solida{border-top:1px solid #000;margin:7px 0}
+.productos{width:100%;border-collapse:collapse;table-layout:fixed}.productos th{font-size:9px;font-weight:900;padding:3px 0;border-bottom:1px solid #000}
+.productos td{padding:2px 0;vertical-align:top}.producto-nombre{font-size:10px;font-weight:900;padding-top:5px!important;word-break:break-word}
+.producto-detalle{font-size:10px}.producto-separador td{padding:5px 0 3px;border-bottom:1px solid #000;height:5px}
+.cantidad{width:15%;text-align:center}.precio{width:35%;text-align:right}.importe{width:50%;text-align:right;font-weight:bold}
+.resumen{width:100%;border-collapse:collapse;font-size:11px}.resumen td{padding:3px 0}.right{text-align:right}
+.fila-descuento{font-weight:bold}.fila-total td{padding-top:7px;font-size:17px;font-weight:900;border-top:2px solid #000}
+.monto-total{font-size:18px!important;white-space:nowrap}.gracias{text-align:center;font-size:12px;font-weight:900;margin-top:10px}
+.mensaje{text-align:center;font-size:9px;margin-top:4px}.pie{text-align:center;font-size:8px;margin-top:10px;font-weight:bold}
+</style></head><body>
+<div class="encabezado"><div class="empresa">TELECOMUNICACIONES BETTY</div><div class="sistema">SISTEMA DE VENTAS</div><div class="preferencia">Gracias por preferirnos</div></div>
+<div class="info"><div class="info-fila"><span class="info-label">VENTA N.°:</span><span>${esc(v.num)}</span></div>
+<div class="info-fila"><span class="info-label">FECHA:</span><span>${esc(fechaTxt(v))}</span></div>
+<div class="cliente"><div class="info-label">CLIENTE:</div><div class="cliente-nombre">${esc(v.cliente||'CLIENTE GENERAL')}</div></div></div>
+<div class="linea"></div>
+<table class="productos"><thead><tr><th style="width:15%">CANT.</th><th style="width:35%">P. UNIT.</th><th style="width:50%;text-align:right">IMPORTE</th></tr></thead><tbody>${filas}</tbody></table>
+<div class="linea-solida"></div>
+<table class="resumen"><tr><td>SUBTOTAL</td><td class="right">S/ ${fmt(v.subtotal)}</td></tr>${fd}
+<tr class="fila-total"><td>TOTAL</td><td class="right monto-total">S/ ${fmt(v.total)}</td></tr></table>
+<div class="linea-solida"></div>
+<div class="gracias">¡GRACIAS POR SU COMPRA!</div><div class="mensaje">Conserve este comprobante como constancia de su compra.</div>
+<div class="pie">TELECOMUNICACIONES BETTY<br>SISTEMA DE VENTAS</div></body></html>`;
   const w=window.open('','_blank','width=420,height=700');
   if(!w) return toast('El navegador bloqueó la ventana de impresión.');
   w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+
+/* ---------- WhatsApp (solo con internet y venta ya sincronizada) ---------- */
+async function whatsapp(v){
+  if(!v) return;
+  if(String(v.num).startsWith('L-')) return toast('Esta venta aún no se sincroniza. Conéctese a internet y espere a que se suba.');
+  if(!navigator.onLine) return toast('Necesita internet para enviar por WhatsApp.');
+  const n=(prompt('Número de WhatsApp del cliente (9 dígitos):','')||'').replace(/\D/g,'').slice(0,9);
+  if(!n) return;
+  if(n.length!==9) return toast('Ingrese un número de exactamente 9 dígitos.');
+  const w=window.open('about:blank','_blank');
+  toast('Generando PDF…');
+  try{
+    const r=await api({accion:'ticketpdf',sync:S.user.sync,venta:{numVenta:v.num,cliente:v.cliente,subtotal:v.subtotal,descuento:v.descuento,total:v.total,fecha:fechaTxt(v),
+      items:v.items.map(i=>({nombre:i.nombre,cantidad:i.cant,precio:i.precio,total:i.total}))}});
+    if(!r.ok||!r.url){ if(w) w.close(); return toast(r.error||'No se pudo generar el PDF.'); }
+    const msg='Hola, gracias por su compra en Telecomunicaciones Betty.\n\n🧾 Ticket de venta #'+v.num+'\n💰 Total: S/ '+fmt(v.total)+'\n\n📄 Puede ver y descargar su ticket PDF aquí:\n'+r.url;
+    const u='https://wa.me/51'+n+'?text='+encodeURIComponent(msg);
+    if(w) w.location.href=u; else window.open(u,'_blank');
+  }catch(e){ if(w) w.close(); toast('No se pudo conectar. Intente de nuevo.'); }
+}
+
+/* ---------- Últimas ventas ---------- */
+function abrirHist(){
+  $('histL').innerHTML=S.hist.length?S.hist.map((v,i)=>`<div class="ci"><div><b>${String(v.num).startsWith('L-')?esc(v.num):'#'+esc(v.num)}</b>
+    <div style="font-size:11px;color:var(--m)">${esc(v.cliente)} · S/ ${fmt(v.total)}</div></div>
+    <div><button class="btn" onclick="imprimir(S.hist[${i}])">🖨</button> <button class="btn" onclick="whatsapp(S.hist[${i}])">📱</button></div></div>`).join('')
+    :'<div style="text-align:center;color:var(--m);padding:24px">Sin ventas recientes en este equipo.</div>';
+  $('hist').style.display='flex';
 }
 
 /* ---------- Escáner de cámara (funciona sin internet en Chrome Android) ---------- */
