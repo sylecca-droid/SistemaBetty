@@ -29,7 +29,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 @media(max-width:850px){.grid{grid-template-columns:1fr}}
 .card{background:#fff;border:1px solid var(--b);border-radius:14px;padding:12px}
 .card h2{margin:0 0 10px;font-size:15px}
-#q{width:100%;height:48px;border:3px solid #d62828;border-radius:11px;padding:0 14px;font-weight:600;outline:0}
+#q{width:100%;min-width:0;height:48px;border:3px solid #d62828;border-radius:11px;padding:0 14px;font-weight:600;outline:0}
 #prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;margin-top:10px}
 .pr{border:1px solid var(--b);border-radius:11px;overflow:hidden;cursor:pointer}
 .pr:active{transform:scale(.98)}
@@ -52,6 +52,10 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 .vr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #edf0f4}
 .vr small{display:block;color:var(--m);font-size:11px;margin-top:2px}
 .vr button{width:42px;height:42px;border:1px solid var(--b);background:#fff;border-radius:10px;font-size:18px;padding:0;margin-left:6px}
+#scan{position:fixed;inset:0;background:#000;display:none;flex-direction:column;z-index:70}
+#scan video{flex:1;width:100%;min-height:0;object-fit:cover}
+#scan .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px;color:#fff;background:linear-gradient(rgba(0,0,0,.7),transparent);font-weight:700}
+#scan .mira{position:absolute;left:12%;right:12%;top:38%;height:22%;border:3px solid #4ade80;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.35)}
 </style></head><body>
 
 <div id="login"><div class="lbox">
@@ -74,7 +78,10 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   <div class="grid">
     <div class="card">
       <h2>📦 Productos <small id="cnt" style="color:var(--m);font-weight:400"></small></h2>
-      <input id="q" placeholder="Buscar producto, código o código de barras…" autocomplete="off" oninput="pintarProds()">
+      <div style="display:flex;gap:8px">
+        <input id="q" placeholder="Buscar producto, código o código de barras…" autocomplete="off" oninput="pintarProds()">
+        <button class="btn" title="Escanear código de barras" onclick="abrirScanner()" style="height:48px;font-size:20px;padding:0 14px">📷</button>
+      </div>
       <div id="prods"></div>
     </div>
     <div>
@@ -108,6 +115,12 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
     <div id="vLista"></div>
     <button class="btn" style="width:100%;margin-top:12px" onclick="$('mVentas').style.display='none'">Cerrar</button>
   </div>
+</div>
+
+<div id="scan">
+  <video id="scanVid" playsinline muted></video>
+  <div class="mira"></div>
+  <div class="bar"><span>📷 Apunte al código de barras</span><button class="btn" onclick="cerrarScanner()">✖ Cerrar</button></div>
 </div>
 <div id="toast"></div>
 
@@ -247,6 +260,54 @@ function pintarProds(){
   }).join('') : `<div style="grid-column:1/-1;text-align:center;color:var(--m);padding:30px">${S.inv.length?'No se encontraron productos.':'Sin inventario. Conéctese a internet para descargarlo.'}</div>`;
 }
 
+/* ---------- Escáner de código de barras (cámara) ---------- */
+let scanStream=null, scanTimer=null;
+async function abrirScanner(){
+  if(!('BarcodeDetector' in window)) return toast('Este navegador no soporta el lector. Use Chrome en Android.');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('La cámara no está disponible (se necesita https).');
+  try{
+    const quiero=['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','qr_code'];
+    let sup=quiero; try{ sup=(await BarcodeDetector.getSupportedFormats()).filter(f=>quiero.includes(f)); }catch(e){}
+    const det=new BarcodeDetector(sup.length?{formats:sup}:undefined);
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    const v=$('scanVid'); v.srcObject=scanStream; await v.play();
+    $('scan').style.display='flex';
+    let leyendo=false;
+    scanTimer=setInterval(async()=>{
+      if(leyendo || v.readyState<2) return;
+      leyendo=true;
+      try{
+        const r=await det.detect(v);
+        if(r.length && r[0].rawValue){ const cod=r[0].rawValue; cerrarScanner(); if(navigator.vibrate) navigator.vibrate(80); procesarCodigo(cod); }
+      }catch(e){}
+      leyendo=false;
+    },250);
+  }catch(e){
+    cerrarScanner();
+    toast('No se pudo abrir la cámara. Revise el permiso de cámara del navegador.');
+  }
+}
+function cerrarScanner(){
+  clearInterval(scanTimer); scanTimer=null;
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  const v=$('scanVid'); if(v) v.srcObject=null;
+  $('scan').style.display='none';
+}
+function procesarCodigo(cod){
+  cod=String(cod).trim();
+  const up=cod.toUpperCase();
+  const i=S.inv.findIndex(p=>[p.ID,p.COD,p['Código Barras']].some(x=>String(x??'').trim().toUpperCase()===up));
+  if(i>=0){
+    $('q').value='';
+    pintarProds();
+    agregar(i);
+    toast('Agregado: '+S.inv[i].Producto);
+  } else {
+    $('q').value=cod; pintarProds();
+    toast('Código no encontrado: '+cod);
+  }
+}
+
 /* ---------- Carrito ---------- */
 function agregar(i){
   const p=S.inv[i], st=Number(p.Stock)||0, id=String(p.ID||p.COD||p['Código Barras']);
@@ -375,6 +436,7 @@ function reiniciarInactividad(){
   clearTimeout(tInact);
   tInact = setTimeout(()=>{
     if(!S.user) return;                      // ya está en la pantalla de login
+    cerrarScanner();
     S.user = null; S.cart = [];
     renderCart();
     ['modal','mVentas'].forEach(id => { const e = $(id); if(e) e.style.display = 'none'; });

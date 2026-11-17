@@ -1,8 +1,12 @@
-const CACHE = 'betty-pos-v1';
-const ARCHIVOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'betty-pos-v2';
+const ARCHIVOS = ['./pos.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => Promise.all(ARCHIVOS.map(a => c.add(a).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
@@ -19,12 +23,11 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // Nunca interceptar el servidor de Google (ventas, login, inventario)
   if (url.origin !== location.origin) return;
-  // Primero internet (para recibir actualizaciones); si no hay, usar lo guardado
+  // Primero internet (recibe actualizaciones); sin internet, usa lo guardado
   e.respondWith(
     fetch(req).then(res => {
-      const copia = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copia));
+      if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
       return res;
-    }).catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+    }).catch(() => caches.match(req).then(r => r || caches.match('./pos.html')))
   );
 });

@@ -2,7 +2,7 @@
   "name": "POS - Telecomunicaciones Betty",
   "short_name": "POS Betty",
   "description": "Punto de venta de Telecomunicaciones Betty",
-  "start_url": "./index.html",
+  "start_url": "./pos.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
