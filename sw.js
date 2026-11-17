@@ -1,4 +1,4 @@
-const V = "betty-pos-v4";
+const V = "betty-pos-v5";
 const SHELL = ["./", "pos.html", "manifest.json", "icon.svg"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {

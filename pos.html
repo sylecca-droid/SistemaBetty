@@ -366,11 +366,11 @@ async function whatsapp(v){
   try{
     const r=await api({accion:'ticketpdf',sync:S.user.sync,venta:{numVenta:v.num,cliente:v.cliente,subtotal:v.subtotal,descuento:v.descuento,total:v.total,fecha:fechaTxt(v),
       items:v.items.map(i=>({nombre:i.nombre,cantidad:i.cant,precio:i.precio,total:i.total}))}});
-    if(!r.ok||!r.url){ if(w) w.close(); return toast(r.error||'No se pudo generar el PDF.'); }
+    if(!r.ok||!r.url){ if(w) w.close(); return toast('PDF: '+(r.error||'respuesta vacía del servidor')); }
     const msg='Hola, gracias por su compra en Telecomunicaciones Betty.\n\n🧾 Ticket de venta #'+v.num+'\n💰 Total: S/ '+fmt(v.total)+'\n\n📄 Puede ver y descargar su ticket PDF aquí:\n'+r.url;
     const u='https://wa.me/51'+n+'?text='+encodeURIComponent(msg);
-    if(w) w.location.href=u; else window.open(u,'_blank');
-  }catch(e){ if(w) w.close(); toast('No se pudo conectar. Intente de nuevo.'); }
+    if(w) w.location.href=u; else location.href=u;
+  }catch(e){ if(w) w.close(); toast('Error al enviar: '+(e.message||e)); }
 }
 
 /* ---------- Últimas ventas ---------- */
