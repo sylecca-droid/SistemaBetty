@@ -183,6 +183,7 @@ async function entrar(){
 }
 async function abrir(online){
   $('login').style.display='none'; $('app').style.display='block'; $('clave').value='';
+  lastAct=Date.now();
   pintarProds(); renderCart(); estado();
   if(online){ await syncAll(); }
 }
@@ -423,6 +424,22 @@ addEventListener('message',e=>{
   try{ if(new URL(ESCANER_URL).origin!==e.origin) return; }catch(x){ return; }
   if(e.data&&e.data.tipo==='BETTY_CODIGO'&&S.user) codigoLeido(e.data.codigo);
 });
+
+/* ---------- Bloqueo por inactividad (10 min) ---------- */
+const INACT_MS=10*60*1000;
+let lastAct=Date.now();
+['click','touchstart','keydown','mousemove','scroll'].forEach(e=>addEventListener(e,()=>{ lastAct=Date.now(); },{passive:true}));
+function revisarInactividad(){
+  if($('app').style.display==='block' && Date.now()-lastAct>=INACT_MS) bloquear();
+}
+function bloquear(){
+  cerrarScan();
+  ['modal','hist'].forEach(id=>$(id).style.display='none');
+  $('app').style.display='none'; $('login').style.display='flex'; $('clave').value='';
+  $('err').textContent='🔒 Bloqueado por inactividad. Ingrese su contraseña para continuar.';
+}
+setInterval(revisarInactividad,5000);
+document.addEventListener('visibilitychange',revisarInactividad);
 
 init();
 </script>
