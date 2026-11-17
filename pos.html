@@ -46,6 +46,11 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 .row input{width:110px;height:36px;border:1px solid var(--b);border-radius:8px;text-align:right;padding:0 8px}
 .tot{font-size:22px;font-weight:900;border-top:1px solid var(--b);margin-top:6px;padding-top:10px;color:var(--p)}
 #cli{width:100%;height:38px;border:1px solid var(--b);border-radius:8px;padding:0 10px;margin-bottom:8px}
+#sr{display:flex;gap:8px}#sr #q{flex:1}
+#bCam{height:48px;border:3px solid #d62828;border-radius:11px;background:#fff;color:#c62828;font-weight:800;padding:0 14px;white-space:nowrap}
+#scan{position:fixed;inset:0;background:rgba(8,18,40,.92);display:none;align-items:center;justify-content:center;z-index:70;padding:15px}
+#scan .box{background:#fff;border-radius:15px;padding:16px;max-width:420px;width:100%;text-align:center}
+#vid{width:100%;max-height:55vh;background:#000;border-radius:10px;object-fit:cover}
 #toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#20242b;color:#fff;border-radius:10px;padding:11px 16px;display:none;z-index:99;max-width:90%}
 #modal{position:fixed;inset:0;background:rgba(8,18,40,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:15px}
 #modal .box{background:#fff;border-radius:15px;padding:22px;max-width:380px;width:100%;text-align:center}
@@ -70,7 +75,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   <div class="grid">
     <div class="card">
       <h2>📦 Productos <small id="cnt" style="color:var(--m);font-weight:400"></small></h2>
-      <input id="q" placeholder="Buscar producto, código o código de barras…" autocomplete="off" oninput="pintarProds()">
+      <div id="sr"><input id="q" placeholder="Buscar producto, código o código de barras…" autocomplete="off" oninput="pintarProds()"><button id="bCam" onclick="abrirScan()">📷 Escanear</button></div>
       <div id="prods"></div>
     </div>
     <div>
@@ -97,10 +102,16 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   <button class="btn pri" onclick="imprimir(S.ult)">🖨 Imprimir ticket</button>
   <button class="btn" onclick="$('modal').style.display='none'">Cerrar</button>
 </div></div>
+<div id="scan"><div class="box">
+  <h3 style="margin:0 0 10px">📷 Leer código de barras</h3>
+  <video id="vid" playsinline muted autoplay></video>
+  <div id="scanMsg" style="font-size:12px;color:var(--m);margin:10px 0">Apunte la cámara al código de barras.</div>
+  <button class="btn" onclick="cerrarScan()">Cancelar</button>
+</div></div>
 <div id="toast"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbz1uFlr8WQxMyuXyXywROuA4Bl4P5AJUqTC8is8Lr0rxTil4GS18HfrLRRGiYikA3sQ7w/exec";
+const API = "https://script.google.com/macros/s/AKfycbz08by4XWqXWVn4FSGzASvx3Q5Qau_XgEzMFulUBtDAzqTuZFnitZeMopQ_mcDB7I6zgg/exec";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -304,6 +315,49 @@ function imprimir(v){
   if(!w) return toast('El navegador bloqueó la ventana de impresión.');
   w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
 }
+
+/* ---------- Escáner de cámara (funciona sin internet en Chrome Android) ---------- */
+const ESCANER_URL="https://sylecca-droid.github.io/SistemaBetty/escaner.html";
+let scanStream=null, scanOn=false, detector=null;
+async function abrirScan(){
+  if('BarcodeDetector' in window){
+    try{
+      detector=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','qr_code']});
+      scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+      const v=$('vid'); v.srcObject=scanStream; await v.play();
+      $('scan').style.display='flex'; scanOn=true; bucleScan(); return;
+    }catch(e){ cerrarScan(); toast('No se pudo abrir la cámara. Revise el permiso del navegador.'); return; }
+  }
+  // Navegador sin lector nativo (iPhone): se usa la página externa, requiere internet
+  if(!navigator.onLine) return toast('Este equipo necesita internet para escanear.');
+  if(!window.open(ESCANER_URL,'_blank')) toast('El navegador bloqueó la ventana del escáner.');
+}
+async function bucleScan(){
+  if(!scanOn) return;
+  try{
+    const r=await detector.detect($('vid'));
+    if(r&&r.length){ const c=r[0].rawValue; cerrarScan(); return codigoLeido(c); }
+  }catch(e){}
+  setTimeout(bucleScan,200);
+}
+function cerrarScan(){
+  scanOn=false;
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  $('vid').srcObject=null; $('scan').style.display='none';
+}
+function codigoLeido(c){
+  c=String(c||'').trim(); if(!c) return;
+  try{ navigator.vibrate&&navigator.vibrate(120); }catch(e){}
+  $('q').value=c; pintarProds();
+  const t=c.toLowerCase();
+  const hits=S.inv.map((p,i)=>({p,i})).filter(x=>[x.p.ID,x.p.COD,x.p['Código Barras']].map(v=>String(v??'').trim().toLowerCase()).includes(t));
+  if(hits.length===1){ agregar(hits[0].i); toast('Agregado: '+hits[0].p.Producto); }
+  else if(!hits.length) toast('No se encontró el código: '+c);
+}
+addEventListener('message',e=>{
+  try{ if(new URL(ESCANER_URL).origin!==e.origin) return; }catch(x){ return; }
+  if(e.data&&e.data.tipo==='BETTY_CODIGO'&&S.user) codigoLeido(e.data.codigo);
+});
 
 init();
 </script>
