@@ -1,1 +1,16 @@
-{"name":"POS Telecomunicaciones Betty","short_name":"POS Betty","start_url":"pos.html","scope":"./","display":"standalone","background_color":"#102a72","theme_color":"#102a72","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "name": "POS - Telecomunicaciones Betty",
+  "short_name": "POS Betty",
+  "description": "Punto de venta de Telecomunicaciones Betty",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#102a72",
+  "theme_color": "#102a72",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
