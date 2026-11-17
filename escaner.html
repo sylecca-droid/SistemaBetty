@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Escáner - Telecomunicaciones Betty</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b1530;color:#fff;font-family:"Segoe UI",Arial,sans-serif}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:#102a72}
+.top b{font-size:15px}
+.top button{border:0;border-radius:8px;padding:9px 14px;font-weight:700;font-size:13px;background:#fff;color:#102a72;cursor:pointer}
+.cam{position:relative;width:100%;background:#000;min-height:300px}
+#v{width:100%;display:block;max-height:70vh;object-fit:cover}
+#reader{width:100%}
+.linea{position:absolute;left:8%;right:8%;top:50%;height:2px;background:#ff3b3b;box-shadow:0 0 10px #ff3b3b;pointer-events:none}
+#msg{padding:14px;text-align:center;font-size:14px;color:#cfd8ee}
+#res{display:none;margin:10px 14px;padding:14px;border-radius:12px;background:#fff;color:#102a72;text-align:center}
+#res .cod{font-size:24px;font-weight:900;letter-spacing:1px;word-break:break-all;margin:6px 0 10px}
+#res button{border:0;border-radius:8px;padding:11px 18px;font-weight:700;font-size:14px;background:#102a72;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <b>📷 Escanear código de barras</b>
+  <button onclick="cancelar()">Cancelar</button>
+</div>
+
+<div class="cam">
+  <video id="v" playsinline muted autoplay></video>
+  <div id="reader" style="display:none;"></div>
+  <div class="linea" id="linea"></div>
+</div>
+
+<div id="msg">Iniciando cámara...</div>
+
+<div id="res">
+  <div>Código leído:</div>
+  <div class="cod" id="cod"></div>
+  <button onclick="copiar()">📋 Copiar código</button>
+</div>
+
+<script>
+var stream = null, activo = false, detector = null, html5 = null, enviado = false;
+
+function msg(t){ document.getElementById("msg").textContent = t; }
+
+async function iniciar(){
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    msg("Este navegador no permite usar la cámara.");
+    return;
+  }
+
+  if ("BarcodeDetector" in window){
+    try { await nativo(); return; }
+    catch(e){ detener(); }
+  }
+
+  libreria();
+}
+
+// ---------- Método 1: nativo (Chrome Android) ----------
+async function nativo(){
+
+  detector = new BarcodeDetector({
+    formats: ["ean_13","ean_8","code_128","code_39","upc_a","upc_e","itf","qr_code"]
+  });
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false
+  });
+
+  var v = document.getElementById("v");
+  v.srcObject = stream;
+  await v.play();
+
+  activo = true;
+  msg("Apunte la cámara al código de barras.");
+  bucle();
+}
+
+async function bucle(){
+
+  if (!activo) return;
+
+  var v = document.getElementById("v");
+
+  try {
+    if (v.readyState >= 2){
+      var codigos = await detector.detect(v);
+      if (codigos && codigos.length){
+        leido(codigos[0].rawValue);
+        return;
+      }
+    }
+  } catch(e){}
+
+  setTimeout(bucle, 150);
+}
+
+// ---------- Método 2: librería (iPhone / otros) ----------
+function libreria(){
+
+  document.getElementById("v").style.display = "none";
+  document.getElementById("linea").style.display = "none";
+  document.getElementById("reader").style.display = "block";
+
+  function arrancar(){
+    try {
+      html5 = new Html5Qrcode("reader");
+      html5.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 280, height: 140 } },
+        function(texto){ leido(texto); },
+        function(){}
+      ).then(function(){
+        msg("Apunte la cámara al código de barras.");
+      }).catch(function(){
+        msg("No se pudo abrir la cámara. Permita el acceso a la cámara en el navegador.");
+      });
+    } catch(e){
+      msg("No se pudo iniciar el lector.");
+    }
+  }
+
+  if (window.Html5Qrcode){ arrancar(); return; }
+
+  var s = document.createElement("script");
+  s.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+  s.onload = arrancar;
+  s.onerror = function(){ msg("No se pudo cargar el lector. Revise su internet."); };
+  document.head.appendChild(s);
+}
+
+// ---------- Resultado ----------
+function leido(codigo){
+
+  codigo = String(codigo || "").trim();
+  if (!codigo || enviado) return;
+  enviado = true;
+
+  try { if (navigator.vibrate) navigator.vibrate(150); } catch(e){}
+
+  detener();
+
+  if (window.opener && !window.opener.closed){
+    try {
+      window.opener.postMessage({ tipo: "BETTY_CODIGO", codigo: codigo }, "*");
+      msg("✅ Código enviado. Volviendo al sistema...");
+      setTimeout(function(){
+        window.close();
+        msg("✅ Listo. Ya puede volver al sistema de ventas.");
+      }, 500);
+      return;
+    } catch(e){}
+  }
+
+  // Respaldo: mostrar el código para copiarlo
+  document.getElementById("cod").textContent = codigo;
+  document.getElementById("res").style.display = "block";
+  msg("No se pudo enviar automáticamente. Copie el código y péguelo en el buscador.");
+}
+
+function copiar(){
+  var t = document.getElementById("cod").textContent;
+  if (navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ msg("Código copiado."); });
+}
+
+function detener(){
+  activo = false;
+  if (stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+  if (html5){ var h = html5; html5 = null; h.stop().then(function(){ h.clear(); }).catch(function(){}); }
+}
+
+function cancelar(){
+  detener();
+  window.close();
+  msg("Ya puede cerrar esta pestaña.");
+}
+
+window.addEventListener("pagehide", detener);
+iniciar();
+</script>
+</body>
+</html>
