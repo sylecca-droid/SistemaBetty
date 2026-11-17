@@ -215,6 +215,7 @@ setInterval(()=>{ if(S.user && S.q.length && navigator.onLine) syncAll(); },3000
 
 /* ---------- Sincronización ---------- */
 async function syncAll(manual){
+  if(manual){ $('q').value=''; pintarProds(); }
   if(S.busy || !S.user || !navigator.onLine){ if(manual) toast('Sin conexión.'); return; }
   S.busy=true;
   try{
@@ -319,7 +320,12 @@ function agregar(i){
   renderCart();
 }
 function mover(i,d){ const c=S.cart[i]; c.cant+=d; if(c.cant>c.stock){c.cant=c.stock;toast('Cantidad limitada al stock.');} if(c.cant<1) S.cart.splice(i,1); renderCart(); }
-function vaciar(){ if(S.cart.length && confirm('¿Vaciar el carrito?')){ S.cart=[]; renderCart(); } }
+function vaciar(){
+  if(!S.cart.length || confirm('¿Vaciar el carrito?')){
+    S.cart=[]; renderCart();
+    $('q').value=''; pintarProds();
+  }
+}
 function renderCart(){
   $('cart').innerHTML = S.cart.length ? S.cart.map((c,i)=>`<div class="ci"><div><b>${esc(c.nombre)}</b><div style="color:var(--m);font-size:11px">S/ ${fmt(c.precio)} c/u</div></div>
     <div style="text-align:right"><b style="color:var(--p)">S/ ${fmt(c.cant*c.precio)}</b><div class="qty"><button onclick="mover(${i},-1)">−</button><span>${c.cant}</span><button onclick="mover(${i},1)">+</button></div></div></div>`).join('')
