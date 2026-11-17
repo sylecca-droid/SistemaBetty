@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102a72">
+<link rel="manifest" href="manifest.json">
+<title>POS - Telecomunicaciones Betty</title>
+<style>
+:root{--p:#102a72;--p2:#1b4fc4;--b:#dce3ee;--t:#172033;--m:#6b7587;--ok:#118449;--er:#c62828}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#eef2f8;color:var(--t);font-size:14px}
+input,select,button{font:inherit}input{text-transform:uppercase}
+button{cursor:pointer}
+.btn{border:1px solid var(--b);background:#fff;border-radius:9px;padding:9px 13px;font-weight:700}
+.pri{background:var(--p);border-color:var(--p);color:#fff}.suc{background:var(--ok);border-color:var(--ok);color:#fff}.dan{background:var(--er);border-color:var(--er);color:#fff}
+#login{position:fixed;inset:0;background:rgba(8,18,40,.94);display:flex;align-items:center;justify-content:center;padding:15px;z-index:50}
+.lbox{width:100%;max-width:340px;background:#fff;border-radius:16px;padding:26px 22px;text-align:center}
+.lbox h2{margin:0 0 4px;color:var(--p)}.lbox p{margin:0 0 16px;color:var(--m);font-size:12px}
+.lbox select,.lbox input{width:100%;height:46px;border:2px solid var(--p2);border-radius:10px;margin-bottom:10px;text-align:center;font-weight:800;color:var(--p)}
+.lbox input{letter-spacing:4px;font-size:18px;text-transform:none}
+#err{color:var(--er);font-size:12px;font-weight:700;min-height:16px;margin-bottom:8px}
+#app{display:none;padding:10px;max-width:1300px;margin:auto}
+header{background:linear-gradient(135deg,#0c2160,#1e55c7);color:#fff;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+header h1{margin:0;font-size:17px;flex:1;min-width:180px}
+.st{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;background:rgba(255,255,255,.15);border-radius:999px;padding:6px 12px}
+.dot{width:10px;height:10px;border-radius:50%;background:#4ade80}.off .dot{background:#f87171}
+#pend{background:#e58a00;color:#fff;border:0;border-radius:999px;padding:6px 12px;font-weight:800;font-size:12px;display:none}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:10px;align-items:start}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--b);border-radius:14px;padding:12px}
+.card h2{margin:0 0 10px;font-size:15px}
+#q{width:100%;height:48px;border:3px solid #d62828;border-radius:11px;padding:0 14px;font-weight:600;outline:0}
+#prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px;margin-top:10px}
+.pr{border:1px solid var(--b);border-radius:11px;overflow:hidden;cursor:pointer}
+.pr:active{transform:scale(.98)}
+.im{height:95px;background:#f1f4fa;display:flex;align-items:center;justify-content:center;font-size:34px}
+.im img{width:100%;height:100%;object-fit:contain}
+.pi{padding:8px}.pn{font-weight:800;font-size:12px;min-height:30px}.pm{color:var(--m);font-size:10px}
+.pb{display:flex;justify-content:space-between;margin-top:6px;font-weight:900;color:var(--p)}
+.sk{font-size:10px;padding:3px 6px;border-radius:6px;background:#e9f8ef;color:#16703a}.sk.z{background:#fdeaea;color:#b42318}
+.ci{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid #edf0f4}
+.ci b{font-size:13px}.qty{display:flex;gap:3px;justify-content:flex-end;margin-top:5px}
+.qty button{width:28px;height:28px;border:1px solid var(--b);background:#fff;border-radius:6px;font-weight:800}
+.qty span{min-width:28px;text-align:center;line-height:28px;font-weight:800}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+.row input{width:110px;height:36px;border:1px solid var(--b);border-radius:8px;text-align:right;padding:0 8px}
+.tot{font-size:22px;font-weight:900;border-top:1px solid var(--b);margin-top:6px;padding-top:10px;color:var(--p)}
+#cli{width:100%;height:38px;border:1px solid var(--b);border-radius:8px;padding:0 10px;margin-bottom:8px}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#20242b;color:#fff;border-radius:10px;padding:11px 16px;display:none;z-index:99;max-width:90%}
+#modal{position:fixed;inset:0;background:rgba(8,18,40,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:15px}
+#modal .box{background:#fff;border-radius:15px;padding:22px;max-width:380px;width:100%;text-align:center}
+</style></head><body>
+
+<div id="login"><div class="lbox">
+  <h2>Telecomunicaciones Betty</h2><p>Seleccione su perfil e ingrese la contraseña</p>
+  <select id="tipo"><option value="">Cargando…</option></select>
+  <input id="clave" type="password" autocomplete="off" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
+  <div id="err"></div>
+  <button class="btn pri" style="width:100%;height:46px" id="bEntrar" onclick="entrar()">Ingresar</button>
+</div></div>
+
+<div id="app">
+  <header>
+    <h1>🛒 Punto de venta · Betty</h1>
+    <div class="st" id="st"><span class="dot"></span><span id="stT">En línea</span></div>
+    <button id="pend" onclick="verPendientes()"></button>
+    <button class="btn" onclick="syncAll(true)">🔄 Sincronizar</button>
+    <button class="btn" onclick="salir()">Salir</button>
+  </header>
+  <div class="grid">
+    <div class="card">
+      <h2>📦 Productos <small id="cnt" style="color:var(--m);font-weight:400"></small></h2>
+      <input id="q" placeholder="Buscar producto, código o código de barras…" autocomplete="off" oninput="pintarProds()">
+      <div id="prods"></div>
+    </div>
+    <div>
+      <div class="card"><h2>🛒 Carrito</h2><div id="cart"></div></div>
+      <div class="card" style="margin-top:10px">
+        <input id="cli" placeholder="Cliente varios">
+        <div class="row"><span>Subtotal</span><b id="sub">S/ 0.00</b></div>
+        <div class="row"><span>Descuento</span><input id="desc" type="number" min="0" step="0.01" oninput="totales()"></div>
+        <div class="row"><span>Efectivo recibido</span><input id="efe" type="number" min="0" step="0.01" oninput="totales()"></div>
+        <div class="row" style="color:var(--er)"><b>Vuelto</b><b id="vue">S/ 0.00</b></div>
+        <div class="row tot"><span>TOTAL</span><span id="tot">S/ 0.00</span></div>
+        <button class="btn suc" style="width:100%;height:48px;margin-top:10px;font-size:15px" onclick="registrar()">💰 REGISTRAR VENTA</button>
+        <button class="btn" style="width:100%;margin-top:8px" onclick="vaciar()">🗑 Vaciar carrito</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal"><div class="box">
+  <div style="color:var(--m)">Venta registrada</div>
+  <div id="mNum" style="font-size:32px;font-weight:800;color:var(--p);margin:6px 0"></div>
+  <div id="mTot" style="font-size:20px;font-weight:700"></div>
+  <div id="mNota" style="font-size:12px;color:var(--m);margin:8px 0"></div>
+  <button class="btn pri" onclick="imprimir(S.ult)">🖨 Imprimir ticket</button>
+  <button class="btn" onclick="$('modal').style.display='none'">Cerrar</button>
+</div></div>
+<div id="toast"></div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbz08by4XWqXWVn4FSGzASvx3Q5Qau_XgEzMFulUBtDAzqTuZFnitZeMopQ_mcDB7I6zgg/exec";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+const S = { user:null, inv:[], q:[], cart:[], busy:false, ult:null };
+
+/* ---------- Almacenamiento local (IndexedDB) ---------- */
+function idb(){ return new Promise((ok,no)=>{ const r=indexedDB.open('betty',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); }); }
+async function kvGet(k){ const d=await idb(); return new Promise(ok=>{ const r=d.transaction('kv').objectStore('kv').get(k); r.onsuccess=()=>ok(r.result); r.onerror=()=>ok(undefined); }); }
+async function kvSet(k,v){ const d=await idb(); return new Promise(ok=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=ok; t.onerror=ok; }); }
+
+/* ---------- Servidor ---------- */
+async function api(body){
+  const c=new AbortController(), t=setTimeout(()=>c.abort(),25000);
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:c.signal});
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function sha(t){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function toast(m){ const e=$('toast'); e.textContent=m; e.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>e.style.display='none',3500); }
+
+/* ---------- Inicio y acceso ---------- */
+async function init(){
+  S.q = (await kvGet('q')) || [];
+  S.inv = (await kvGet('inv')) || [];
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  let tipos = (await kvGet('tipos')) || [];
+  if(navigator.onLine){
+    try{
+      const r=await api({accion:'tipos'});
+      if(r.ok){ tipos=r.tipos; await kvSet('tipos',tipos); }
+      else $('err').textContent='Servidor: '+(r.error||'respuesta inválida');
+    }catch(e){
+      $('err').textContent='No se pudo conectar con el servidor ('+(e.message||e)+'). Revise la implementación de Apps Script.';
+    }
+  }
+  if(!tipos.length && !$('err').textContent) $('err').textContent='La hoja USUARIOS no devolvió usuarios.';
+  $('tipo').innerHTML = '<option value="">— Seleccione —</option>' + tipos.map(t=>`<option>${esc(t)}</option>`).join('');
+  estado();
+}
+async function entrar(){
+  const tipo=$('tipo').value.trim(), clave=$('clave').value.trim();
+  if(!tipo) return $('err').textContent='Seleccione el tipo de usuario.';
+  if(!clave) return $('err').textContent='Ingrese la contraseña.';
+  $('bEntrar').disabled=true; $('err').textContent='';
+  const h = await sha(tipo+':'+clave);
+  let r=null;
+  if(navigator.onLine){ try{ r=await api({accion:'login',tipo,clave}); }catch(e){ r=null; } }
+  if(r){
+    $('bEntrar').disabled=false;
+    if(!r.ok) return $('err').textContent=r.error||'Contraseña incorrecta.';
+    if(r.tipo==='ADMINISTRADOR'){ location.href=API+'?page=inventario&t='+encodeURIComponent(r.token); return; }
+    S.user={tipo:r.tipo,usuario:r.usuario,sync:r.sync};
+    await kvSet('user:'+h,{...S.user,hash:h});
+    abrir(true);
+  } else {
+    $('bEntrar').disabled=false;
+    const u=await kvGet('user:'+h);
+    if(!u) return $('err').textContent='Sin internet: este equipo debe ingresar con internet al menos una vez.';
+    S.user=u; abrir(false);
+  }
+}
+async function abrir(online){
+  $('login').style.display='none'; $('app').style.display='block'; $('clave').value='';
+  pintarProds(); renderCart(); estado();
+  if(online){ await syncAll(); }
+}
+async function salir(){
+  if(S.q.length && !confirm('Hay ventas sin sincronizar. Quedan guardadas en este equipo. ¿Salir?')) return;
+  S.user=null; S.cart=[]; $('app').style.display='none'; $('login').style.display='flex';
+}
+
+/* ---------- Estado de conexión ---------- */
+function estado(){
+  const on=navigator.onLine;
+  $('st').className='st'+(on?'':' off'); $('stT').textContent=on?'En línea':'Sin conexión';
+  const n=S.q.length, b=$('pend');
+  b.style.display=n?'inline-block':'none';
+  b.textContent='⏳ '+n+(n===1?' venta por sincronizar':' ventas por sincronizar');
+}
+addEventListener('online',()=>{ estado(); toast('Conexión recuperada. Sincronizando…'); syncAll(); });
+addEventListener('offline',()=>{ estado(); toast('Sin conexión. Las ventas se guardan en el equipo.'); });
+setInterval(()=>{ if(S.user && S.q.length && navigator.onLine) syncAll(); },30000);
+
+/* ---------- Sincronización ---------- */
+async function syncAll(manual){
+  if(S.busy || !S.user || !navigator.onLine){ if(manual) toast('Sin conexión.'); return; }
+  S.busy=true;
+  try{
+    for(const q of S.q.slice()){
+      if(q.error && !manual) continue;
+      let r;
+      try{ r=await api({accion:'venta',sync:S.user.sync,idLocal:q.id,fechaLocal:q.fecha,payload:q.payload}); }
+      catch(e){ return; }                                   // sin red: se reintenta luego
+      if(r.auth){ toast(r.error); return; }
+      if(r.ok){ q.ticket.num=r.numVenta; S.q=S.q.filter(x=>x.id!==q.id); }
+      else { q.error=r.error||'Error desconocido'; }
+      await kvSet('q',S.q); estado();
+    }
+    try{
+      const r=await api({accion:'inventario',sync:S.user.sync});
+      if(r.ok){ S.inv=r.inventario; await kvSet('inv',S.inv); pintarProds(); }
+      else if(r.auth){ toast(r.error); }
+    }catch(e){}
+    if(manual) toast(S.q.length?'Quedan ventas pendientes o con error.':'Todo sincronizado ✔');
+  } finally { S.busy=false; estado(); }
+}
+function verPendientes(){
+  const err=S.q.filter(q=>q.error);
+  const txt=S.q.map(q=>q.ticket.num+' · S/ '+fmt(q.ticket.total)+(q.error?' · ERROR: '+q.error:' · pendiente')).join('\n');
+  if(!err.length) return alert('Ventas por sincronizar:\n\n'+txt);
+  if(confirm('Ventas pendientes:\n\n'+txt+'\n\nLas ventas con ERROR no se pudieron registrar (por ejemplo, falta de stock).\n¿Descartar las ventas con error?')){
+    S.q=S.q.filter(q=>!q.error); kvSet('q',S.q); estado();
+  }
+}
+
+/* ---------- Productos ---------- */
+function pintarProds(){
+  const t=$('q').value.trim().toLowerCase();
+  let l=S.inv.map((p,i)=>({p,i}));
+  if(t) l=l.filter(x=>[x.p.ID,x.p.COD,x.p['Código Barras'],x.p.Producto,x.p.Marca,x.p.Categoría].join(' ').toLowerCase().includes(t));
+  $('cnt').textContent = S.inv.length+' en el equipo';
+  l=l.slice(0,8);
+  $('prods').innerHTML = l.length ? l.map(({p,i})=>{
+    const st=Number(p.Stock)||0;
+    const img=p.Imagen?`<img src="${esc(p.Imagen)}" alt="" onerror="this.remove()">`:'📦';
+    return `<div class="pr" onclick="agregar(${i})"><div class="im">${img}</div><div class="pi">
+      <div class="pn">${esc(p.Producto)}</div><div class="pm">${esc(p.Marca)}</div>
+      <div class="pb"><span>S/ ${fmt(p['Precio Unitario'])}</span><span class="sk ${st<=0?'z':''}">Stock: ${st}</span></div></div></div>`;
+  }).join('') : `<div style="grid-column:1/-1;text-align:center;color:var(--m);padding:30px">${S.inv.length?'No se encontraron productos.':'Sin inventario. Conéctese a internet para descargarlo.'}</div>`;
+}
+
+/* ---------- Carrito ---------- */
+function agregar(i){
+  const p=S.inv[i], st=Number(p.Stock)||0, id=String(p.ID||p.COD||p['Código Barras']);
+  if(st<=0) return toast('Este producto no tiene stock.');
+  const e=S.cart.find(x=>x.id===id);
+  if(e){ if(e.cant+1>st) return toast('No hay más stock disponible.'); e.cant++; }
+  else S.cart.push({id,nombre:p.Producto,cant:1,precio:Number(p['Precio Unitario'])||0,stock:st});
+  renderCart();
+}
+function mover(i,d){ const c=S.cart[i]; c.cant+=d; if(c.cant>c.stock){c.cant=c.stock;toast('Cantidad limitada al stock.');} if(c.cant<1) S.cart.splice(i,1); renderCart(); }
+function vaciar(){ if(S.cart.length && confirm('¿Vaciar el carrito?')){ S.cart=[]; renderCart(); } }
+function renderCart(){
+  $('cart').innerHTML = S.cart.length ? S.cart.map((c,i)=>`<div class="ci"><div><b>${esc(c.nombre)}</b><div style="color:var(--m);font-size:11px">S/ ${fmt(c.precio)} c/u</div></div>
+    <div style="text-align:right"><b style="color:var(--p)">S/ ${fmt(c.cant*c.precio)}</b><div class="qty"><button onclick="mover(${i},-1)">−</button><span>${c.cant}</span><button onclick="mover(${i},1)">+</button></div></div></div>`).join('')
+    : '<div style="text-align:center;color:var(--m);padding:30px">No hay productos en el carrito.</div>';
+  totales();
+}
+function calc(){
+  const sub=Math.round(S.cart.reduce((a,c)=>a+c.cant*c.precio,0)*100)/100;
+  let d=Number($('desc').value)||0; if(d<0)d=0; if(d>sub)d=sub;
+  return {sub,d,total:Math.round((sub-d)*100)/100};
+}
+function totales(){
+  const c=calc(), e=Number($('efe').value)||0;
+  $('sub').textContent='S/ '+fmt(c.sub); $('tot').textContent='S/ '+fmt(c.total);
+  $('vue').textContent='S/ '+fmt(e>c.total?e-c.total:0);
+}
+
+/* ---------- Registrar venta (funciona sin internet) ---------- */
+async function registrar(){
+  if(!S.cart.length) return toast('Agregue productos al carrito.');
+  if(!confirm('¿Desea registrar la venta?')) return;
+  const c=calc(), cliente=$('cli').value.trim()||'CLIENTE VARIOS';
+  const n=((await kvGet('cnt'))||0)+1; await kvSet('cnt',n);
+  const q={
+    id:crypto.randomUUID(), fecha:new Date().toISOString(),
+    payload:{metodoPago:'Venta',metodosPago:[{metodo:'Venta',monto:c.total}],cliente,empresa:'',contacto:'',telefono:'',direccion:'',numCotizacion:'',
+      descuentoTipo:'importe',descuentoValor:c.d,capitalCredito:0,cuotasCredito:0,
+      items:S.cart.map(x=>({productoId:x.id,nombre:x.nombre,cantidad:x.cant,precioUnitario:x.precio,descuento:0}))},
+    ticket:{num:'L-'+String(n).padStart(4,'0'),fecha:new Date().toISOString(),cliente,subtotal:c.sub,descuento:c.d,total:c.total,
+      items:S.cart.map(x=>({nombre:x.nombre,cant:x.cant,precio:x.precio,total:x.cant*x.precio}))}
+  };
+  // Descontar stock en el equipo
+  S.cart.forEach(x=>{ const p=S.inv.find(y=>String(y.ID||y.COD||y['Código Barras'])===x.id); if(p) p.Stock=Math.max(0,(Number(p.Stock)||0)-x.cant); });
+  S.q.push(q); await kvSet('q',S.q); await kvSet('inv',S.inv);
+  S.cart=[]; $('desc').value=''; $('efe').value=''; $('cli').value='';
+  renderCart(); pintarProds(); estado();
+  if(navigator.onLine) await syncAll();
+  S.ult=q.ticket;
+  $('mNum').textContent=(String(q.ticket.num).startsWith('L-')?'':'#')+q.ticket.num;
+  $('mTot').textContent='S/ '+fmt(q.ticket.total);
+  $('mNota').textContent=String(q.ticket.num).startsWith('L-') ? 'Guardada en este equipo. Se subirá sola al volver el internet y recibirá su número definitivo.' : 'Registrada en el sistema.';
+  $('modal').style.display='flex';
+  imprimir(q.ticket);
+}
+
+/* ---------- Ticket ---------- */
+function imprimir(v){
+  if(!v) return;
+  const f=new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v.fecha)).replace(',',' –');
+  const filas=v.items.map(i=>`<tr><td colspan="3" style="font-weight:900;padding-top:5px">${esc(i.nombre)}</td></tr><tr><td style="text-align:center">${i.cant}</td><td style="text-align:right">S/ ${fmt(i.precio)}</td><td style="text-align:right;font-weight:bold">S/ ${fmt(i.total)}</td></tr><tr><td colspan="3" style="border-bottom:1px solid #000;height:4px"></td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ticket ${esc(v.num)}</title><style>@page{size:80mm auto;margin:0}body{width:72mm;margin:0 auto;padding:5mm 0;font:10.5px Arial,sans-serif;color:#000}table{width:100%;border-collapse:collapse}.c{text-align:center}</style></head><body>
+  <div class="c"><div style="font-size:17px;font-weight:900">TELECOMUNICACIONES BETTY</div><div style="font-weight:bold">SISTEMA DE VENTAS</div><div>Gracias por preferirnos</div></div>
+  <p><b>VENTA N.°:</b> ${esc(v.num)}<br><b>FECHA:</b> ${esc(f)}<br><b>CLIENTE:</b> ${esc(v.cliente)}</p><hr style="border:0;border-top:1px dashed #000">
+  <table><tr><th>CANT.</th><th style="text-align:right">P. UNIT.</th><th style="text-align:right">IMPORTE</th></tr>${filas}</table>
+  <table style="margin-top:6px"><tr><td>SUBTOTAL</td><td style="text-align:right">S/ ${fmt(v.subtotal)}</td></tr>${v.descuento>0?`<tr><td>DESCUENTO</td><td style="text-align:right">- S/ ${fmt(v.descuento)}</td></tr>`:''}<tr><td style="font-size:17px;font-weight:900;border-top:2px solid #000">TOTAL</td><td style="text-align:right;font-size:18px;font-weight:900;border-top:2px solid #000">S/ ${fmt(v.total)}</td></tr></table>
+  <p class="c" style="font-weight:900;font-size:12px">¡GRACIAS POR SU COMPRA!</p></body></html>`;
+  const w=window.open('','_blank','width=420,height=700');
+  if(!w) return toast('El navegador bloqueó la ventana de impresión.');
+  w.document.open(); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+
+init();
+</script>
+</body></html>
