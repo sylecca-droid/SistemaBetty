@@ -128,7 +128,16 @@ async function init(){
   S.inv = (await kvGet('inv')) || [];
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
   let tipos = (await kvGet('tipos')) || [];
-  if(navigator.onLine){ try{ const r=await api({accion:'tipos'}); if(r.ok){ tipos=r.tipos; await kvSet('tipos',tipos); } }catch(e){} }
+  if(navigator.onLine){
+    try{
+      const r=await api({accion:'tipos'});
+      if(r.ok){ tipos=r.tipos; await kvSet('tipos',tipos); }
+      else $('err').textContent='Servidor: '+(r.error||'respuesta inválida');
+    }catch(e){
+      $('err').textContent='No se pudo conectar con el servidor ('+(e.message||e)+'). Revise la implementación de Apps Script.';
+    }
+  }
+  if(!tipos.length && !$('err').textContent) $('err').textContent='La hoja USUARIOS no devolvió usuarios.';
   $('tipo').innerHTML = '<option value="">— Seleccione —</option>' + tipos.map(t=>`<option>${esc(t)}</option>`).join('');
   estado();
 }
