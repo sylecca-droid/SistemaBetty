@@ -8,6 +8,7 @@
 <style>
 :root{--p:#102a72;--p2:#1b4fc4;--b:#dce3ee;--t:#172033;--m:#6b7587;--ok:#118449;--er:#c62828}
 *{box-sizing:border-box}
+html,body{overscroll-behavior-y:none}
 body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:#eef2f8;color:var(--t);font-size:14px}
 input,select,button{font:inherit}input{text-transform:uppercase}
 button{cursor:pointer}
@@ -447,6 +448,13 @@ function reiniciarInactividad(){
 }
 ['click','keydown','touchstart','mousemove','scroll'].forEach(ev =>
   addEventListener(ev, () => { if(S.user) reiniciarInactividad(); }, {passive:true}));
+
+/* ---------- Limpiar contraseña al cambiar Administrador / Vendedor ---------- */
+$('tipo').addEventListener('change', () => {
+  $('clave').value = '';
+  $('err').textContent = '';
+  $('clave').focus();
+});
 
 init();
 </script>
