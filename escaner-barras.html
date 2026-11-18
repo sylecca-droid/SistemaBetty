@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escáner de código de barras</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  body{margin:0;padding:14px;font-family:Arial,sans-serif;background:#102a72;color:#fff;text-align:center}
+  h2{margin:6px 0;font-size:18px}
+  #reader{max-width:420px;margin:12px auto;background:#000;border-radius:12px;overflow:hidden}
+  #msg{font-size:14px;min-height:20px}
+  #cod{font-size:22px;font-weight:800;letter-spacing:1px;margin:8px 0}
+  button{border:0;border-radius:8px;padding:11px 22px;font-weight:700;font-size:14px;cursor:pointer;background:#fff;color:#102a72}
+</style>
+</head>
+<body>
+
+<h2>📷 Escanear código de barras</h2>
+<div id="reader"></div>
+<div id="msg">Apunte al código de barras…</div>
+<div id="cod"></div>
+<button onclick="window.close()">Cancelar</button>
+
+<script>
+let enviado = false;
+const F = Html5QrcodeSupportedFormats;
+
+const lector = new Html5Qrcode('reader', {
+  formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE],
+  verbose: false
+});
+
+lector.start(
+  { facingMode: 'environment' },
+  { fps: 10, qrbox: { width: 260, height: 110 } },
+  function(texto){
+
+    if (enviado) return;
+    enviado = true;
+
+    if (navigator.vibrate) navigator.vibrate(120);
+    lector.stop().catch(function(){});
+
+    document.getElementById('cod').textContent = texto;
+
+    if (window.opener && !window.opener.closed){
+      window.opener.postMessage({ tipo: 'barcode', codigo: texto }, '*');
+      document.getElementById('msg').textContent = '✔ Código enviado';
+      setTimeout(function(){ window.close(); }, 500);
+    } else {
+      if (navigator.clipboard) navigator.clipboard.writeText(texto).catch(function(){});
+      document.getElementById('msg').textContent =
+        '✔ Código copiado. Vuelva al sistema y péguelo en el campo.';
+    }
+  },
+  function(){}
+).catch(function(e){
+  document.getElementById('msg').textContent =
+    'No se pudo abrir la cámara: ' + (e && e.message ? e.message : e);
+});
+</script>
+
+</body>
+</html>
