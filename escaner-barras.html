@@ -9,7 +9,7 @@
   body{margin:0;padding:14px;font-family:Arial,sans-serif;background:#102a72;color:#fff;text-align:center}
   h2{margin:6px 0;font-size:18px}
   #reader{max-width:420px;margin:12px auto;background:#000;border-radius:12px;overflow:hidden}
-  #msg{font-size:14px;min-height:20px}
+  #msg{font-size:15px;min-height:22px;font-weight:700}
   #cod{font-size:22px;font-weight:800;letter-spacing:1px;margin:8px 0}
   button{border:0;border-radius:8px;padding:11px 22px;font-weight:700;font-size:14px;cursor:pointer;background:#fff;color:#102a72}
 </style>
@@ -24,12 +24,34 @@
 
 <script>
 let enviado = false;
+
+/* El sistema nos pasa el token y la dirección del servidor en el # de la URL */
+let CFG = {};
+try { CFG = JSON.parse(decodeURIComponent(location.hash.slice(1))); } catch(e){}
+
 const F = Html5QrcodeSupportedFormats;
 
 const lector = new Html5Qrcode('reader', {
   formatsToSupport: [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.QR_CODE],
   verbose: false
 });
+
+function enviarAlSistema(texto){
+
+  /* Vía 1: directo a la pestaña del sistema (si el navegador lo permite) */
+  try{
+    if (window.opener && !window.opener.closed){
+      window.opener.postMessage({ tipo: 'barcode', codigo: texto }, '*');
+    }
+  }catch(e){}
+
+  /* Vía 2: por el servidor (siempre funciona) */
+  if (CFG.u && CFG.t){
+    const img = new Image();
+    img.src = CFG.u + '?accion=barcode&t=' + encodeURIComponent(CFG.t) +
+              '&c=' + encodeURIComponent(texto) + '&_=' + Date.now();
+  }
+}
 
 lector.start(
   { facingMode: 'environment' },
@@ -44,15 +66,11 @@ lector.start(
 
     document.getElementById('cod').textContent = texto;
 
-    if (window.opener && !window.opener.closed){
-      window.opener.postMessage({ tipo: 'barcode', codigo: texto }, '*');
-      document.getElementById('msg').textContent = '✔ Código enviado';
-      setTimeout(function(){ window.close(); }, 500);
-    } else {
-      if (navigator.clipboard) navigator.clipboard.writeText(texto).catch(function(){});
-      document.getElementById('msg').textContent =
-        '✔ Código copiado. Vuelva al sistema y péguelo en el campo.';
-    }
+    enviarAlSistema(texto);
+
+    document.getElementById('msg').textContent = '✔ Código enviado al sistema';
+
+    setTimeout(function(){ window.close(); }, 1200);
   },
   function(){}
 ).catch(function(e){
