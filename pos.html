@@ -58,6 +58,11 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 #scan video{flex:1;width:100%;min-height:0;object-fit:cover}
 #scan .bar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:14px;color:#fff;background:linear-gradient(rgba(0,0,0,.7),transparent);font-weight:700}
 #scan .mira{position:absolute;left:12%;right:12%;top:38%;height:22%;border:3px solid #4ade80;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.35)}
+#mPend{position:fixed;inset:0;background:rgba(8,18,40,.55);display:none;align-items:center;justify-content:center;z-index:65;padding:15px}
+#mPend .box{background:#fff;border-radius:15px;padding:22px;max-width:380px;width:100%;text-align:center}
+#pCli{width:100%;height:44px;border:2px solid var(--p2);border-radius:10px;padding:0 12px;margin:8px 0;display:none}
+.pp{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #edf0f4}
+.tag{background:#fff4dd;color:#a96300;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
 </style></head><body>
 
 <div id="login"><div class="lbox">
@@ -87,6 +92,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
       <div id="prods"></div>
     </div>
     <div>
+      <div class="card" id="cPend" style="margin-bottom:10px;display:none"><h2>⏳ Pendientes <small id="nPend" style="color:var(--m)"></small></h2><div id="lPend"></div></div>
       <div class="card"><h2>🛒 Carrito</h2><div id="cart"></div></div>
       <div class="card" style="margin-top:10px">
         <input id="cli" placeholder="Cliente varios">
@@ -119,6 +125,18 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   </div>
 </div>
 
+<div id="mPend"><div class="box">
+  <div style="color:var(--m)">¿Cómo queda este producto?</div>
+  <div id="pNom" style="font-weight:800;margin:6px 0 12px"></div>
+  <div id="pBot1">
+    <button class="btn suc" onclick="pElegir('C')">✔ CANCELADO</button>
+    <button class="btn" style="background:#e58a00;border-color:#e58a00;color:#fff" onclick="pElegir('P')">⏳ PENDIENTE</button>
+  </div>
+  <input id="pCli" placeholder="Nombre del cliente">
+  <div id="pBot2" style="display:none"><button class="btn pri" onclick="pGuardar()">Guardar pendiente</button></div>
+  <div><button class="btn" style="margin-top:10px" onclick="pCerrar()">Cerrar</button></div>
+</div></div>
+
 <div id="scan">
   <video id="scanVid" playsinline muted></video>
   <div class="mira"></div>
@@ -131,7 +149,7 @@ const API = "https://script.google.com/macros/s/AKfycbxNW24DjcUJkktpyYcL_hLS6EYD
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
-const S = { user:null, inv:[], q:[], cart:[], busy:false, ult:null, hist:[] };
+const S = { user:null, inv:[], q:[], cart:[], busy:false, ult:null, hist:[], pq:[], pend:[], pi:-1 };
 
 /* ---------- Almacenamiento local (IndexedDB) ---------- */
 function idb(){ return new Promise((ok,no)=>{ const r=indexedDB.open('betty',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>ok(r.result); r.onerror=()=>no(r.error); }); }
@@ -154,6 +172,8 @@ async function init(){
   S.q = (await kvGet('q')) || [];
   S.inv = (await kvGet('inv')) || [];
   S.hist = (await kvGet('hist')) || [];
+  S.pq = (await kvGet('pq')) || [];
+  S.pend = (await kvGet('pend')) || [];
   if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
   let tipos = (await kvGet('tipos')) || [];
   if(navigator.onLine){
@@ -194,11 +214,11 @@ async function entrar(){
 async function abrir(online){
   reiniciarInactividad();
   $('login').style.display='none'; $('app').style.display='block'; $('clave').value='';
-  pintarProds(); renderCart(); estado();
+  pintarProds(); renderCart(); estado(); pintarPend();
   if(online){ await syncAll(); }
 }
 async function salir(){
-  if(S.q.length && !confirm('Hay ventas sin sincronizar. Quedan guardadas en este equipo. ¿Salir?')) return;
+  if((S.q.length||S.pq.length) && !confirm('Hay datos sin sincronizar. Quedan guardados en este equipo. ¿Salir?')) return;
   S.user=null; S.cart=[]; $('app').style.display='none'; $('login').style.display='flex';
 }
 
@@ -212,7 +232,7 @@ function estado(){
 }
 addEventListener('online',()=>{ estado(); toast('Conexión recuperada. Sincronizando…'); syncAll(); });
 addEventListener('offline',()=>{ estado(); toast('Sin conexión. Las ventas se guardan en el equipo.'); });
-setInterval(()=>{ if(S.user && S.q.length && navigator.onLine) syncAll(); },30000);
+setInterval(()=>{ if(S.user && (S.q.length||S.pq.length) && navigator.onLine) syncAll(); },30000);
 
 /* ---------- Sincronización ---------- */
 async function syncAll(manual){
@@ -220,6 +240,13 @@ async function syncAll(manual){
   if(S.busy || !S.user || !navigator.onLine){ if(manual) toast('Sin conexión.'); return; }
   S.busy=true;
   try{
+    for(const x of S.pq.slice()){
+      let r;
+      try{ r=await api({accion:'pendiente',sync:S.user.sync,idLocal:x.id,fechaLocal:x.fecha,cliente:x.cliente,productoId:x.productoId,nombre:x.nombre,precio:x.precio,vendedor:x.vendedor}); }
+      catch(e){ return; }
+      if(r.auth){ toast(r.error); return; }
+      if(r.ok){ S.pq=S.pq.filter(y=>y.id!==x.id); await kvSet('pq',S.pq); }
+    }
     for(const q of S.q.slice()){
       if(q.error && !manual) continue;
       let r;
@@ -234,6 +261,14 @@ async function syncAll(manual){
       const r=await api({accion:'inventario',sync:S.user.sync});
       if(r.ok){ S.inv=r.inventario; await kvSet('inv',S.inv); pintarProds(); }
       else if(r.auth){ toast(r.error); }
+    }catch(e){}
+    try{
+      const r=await api({accion:'pendientes',sync:S.user.sync});
+      if(r.ok){
+        const cobrando=new Set(S.q.flatMap(q=>q.payload.pendIds||[]));
+        S.pend=[...S.pq, ...r.pendientes.filter(p=>!cobrando.has(p.id) && !S.pq.some(y=>y.id===p.id))];
+        await kvSet('pend',S.pend); pintarPend();
+      }
     }catch(e){}
     if(manual) toast(S.q.length?'Quedan ventas pendientes o con error.':'Todo sincronizado ✔');
   } finally { S.busy=false; estado(); }
@@ -259,7 +294,7 @@ function pintarProds(){
     const sx=String(p.SEXO??p.Sexo??'').trim().toUpperCase();
     const bx=sx?`<div><span class="sx ${sx==='MUJER'?'m':'h'}">${esc(sx)}</span></div>`:'';
     const img=p.Imagen?`<img src="${esc(p.Imagen)}" alt="" onerror="this.remove()">`:'📦';
-    return `<div class="pr" onclick="agregar(${i})"><div class="im">${img}</div><div class="pi">
+    return `<div class="pr" onclick="tocar(${i})"><div class="im">${img}</div><div class="pi">
       <div class="pn">${esc(p.Producto)}</div><div class="pm">${esc(p.Marca)}</div>${bx}
       <div class="pb"><span>S/ ${fmt(p['Precio Unitario'])}</span><span class="sk ${st<=0?'z':''}">Stock: ${st}</span></div></div></div>`;
   }).join('') : `<div style="grid-column:1/-1;text-align:center;color:var(--m);padding:30px">${S.inv.length?'No se encontraron productos.':'Sin inventario. Conéctese a internet para descargarlo.'}</div>`;
@@ -305,8 +340,7 @@ function procesarCodigo(cod){
   if(i>=0){
     $('q').value='';
     pintarProds();
-    agregar(i);
-    toast('Agregado: '+S.inv[i].Producto);
+    tocar(i);
   } else {
     $('q').value=cod; pintarProds();
     toast('Código no encontrado: '+cod);
@@ -317,12 +351,12 @@ function procesarCodigo(cod){
 function agregar(i){
   const p=S.inv[i], st=Number(p.Stock)||0, id=String(p.ID||p.COD||p['Código Barras']);
   if(st<=0) return toast('Este producto no tiene stock.');
-  const e=S.cart.find(x=>x.id===id);
+  const e=S.cart.find(x=>x.id===id && !x.pendId);
   if(e){ if(e.cant+1>st) return toast('No hay más stock disponible.'); e.cant++; }
   else S.cart.push({id,nombre:p.Producto,sexo:String(p.SEXO??p.Sexo??'').trim().toUpperCase(),cant:1,precio:Number(p['Precio Unitario'])||0,stock:st});
   renderCart();
 }
-function mover(i,d){ const c=S.cart[i]; c.cant+=d; if(c.cant>c.stock){c.cant=c.stock;toast('Cantidad limitada al stock.');} if(c.cant<1) S.cart.splice(i,1); renderCart(); }
+function mover(i,d){ const c=S.cart[i]; if(c.pendId){ if(d<0) S.cart.splice(i,1); renderCart(); return; } c.cant+=d; if(c.cant>c.stock){c.cant=c.stock;toast('Cantidad limitada al stock.');} if(c.cant<1) S.cart.splice(i,1); renderCart(); }
 function vaciar(){
   if(!S.cart.length || confirm('¿Vaciar el carrito?')){
     S.cart=[]; renderCart();
@@ -330,7 +364,7 @@ function vaciar(){
   }
 }
 function renderCart(){
-  $('cart').innerHTML = S.cart.length ? S.cart.map((c,i)=>`<div class="ci"><div><b>${esc(c.nombre)}</b>${c.sexo?` <span class="sx ${c.sexo==='MUJER'?'m':'h'}">${esc(c.sexo)}</span>`:''}<div style="color:var(--m);font-size:11px">S/ ${fmt(c.precio)} c/u</div></div>
+  $('cart').innerHTML = S.cart.length ? S.cart.map((c,i)=>`<div class="ci"><div><b>${esc(c.nombre)}</b>${c.pendId?' <span class="tag">PENDIENTE ➜ COBRAR</span>':''}${c.sexo?` <span class="sx ${c.sexo==='MUJER'?'m':'h'}">${esc(c.sexo)}</span>`:''}<div style="color:var(--m);font-size:11px">S/ ${fmt(c.precio)} c/u</div></div>
     <div style="text-align:right"><b style="color:var(--p)">S/ ${fmt(c.cant*c.precio)}</b><div class="qty"><button onclick="mover(${i},-1)">−</button><span>${c.cant}</span><button onclick="mover(${i},1)">+</button></div></div></div>`).join('')
     : '<div style="text-align:center;color:var(--m);padding:30px">No hay productos en el carrito.</div>';
   totales();
@@ -360,9 +394,11 @@ async function registrar(){
     ticket:{num:'L-'+String(n).padStart(4,'0'),fecha:new Date().toISOString(),cliente,subtotal:c.sub,descuento:c.d,total:c.total,
       items:S.cart.map(x=>({nombre:x.nombre,cant:x.cant,precio:x.precio,total:x.cant*x.precio}))}
   };
+  q.payload.pendIds = S.cart.filter(x=>x.pendId).map(x=>x.pendId);
   // Descontar stock en el equipo
   S.cart.forEach(x=>{ const p=S.inv.find(y=>String(y.ID||y.COD||y['Código Barras'])===x.id); if(p) p.Stock=Math.max(0,(Number(p.Stock)||0)-x.cant); });
   S.q.push(q); await kvSet('q',S.q); await kvSet('inv',S.inv);
+  if(q.payload.pendIds.length){ S.pend=S.pend.filter(p=>!q.payload.pendIds.includes(p.id)); await kvSet('pend',S.pend); pintarPend(); }
   q.ticket.id = q.id; S.hist.unshift(q.ticket); S.hist = S.hist.slice(0,50); await kvSet('hist',S.hist);
   S.cart=[]; $('desc').value=''; $('efe').value=''; $('cli').value='';
   renderCart(); pintarProds(); estado();
@@ -373,6 +409,45 @@ async function registrar(){
   $('mNota').textContent=String(q.ticket.num).startsWith('L-') ? 'Guardada en este equipo. Se subirá sola al volver el internet y recibirá su número definitivo.' : 'Registrada en el sistema.';
   $('modal').style.display='flex';
   imprimir(q.ticket);
+}
+
+/* ---------- Pendientes ---------- */
+function tocar(i){
+  const p=S.inv[i];
+  if(!p.PEND) return agregar(i);
+  if((Number(p.Stock)||0)<=0) return toast('Este producto no tiene stock.');
+  S.pi=i; $('pNom').textContent=p.Producto; $('pCli').value=''; $('pCli').style.display='none';
+  $('pBot1').style.display='block'; $('pBot2').style.display='none'; $('mPend').style.display='flex';
+}
+function pCerrar(){ $('mPend').style.display='none'; }
+function pElegir(x){
+  if(x==='C'){ pCerrar(); return agregar(S.pi); }
+  $('pBot1').style.display='none'; $('pCli').style.display='block'; $('pBot2').style.display='block'; $('pCli').focus();
+}
+async function pGuardar(){
+  const cli=$('pCli').value.trim();
+  if(!cli) return toast('Escriba el nombre del cliente.');
+  const p=S.inv[S.pi];
+  const r={id:crypto.randomUUID(),fecha:new Date().toISOString(),cliente:cli.toUpperCase(),
+    productoId:String(p.ID||p.COD||p['Código Barras']),nombre:p.Producto,
+    precio:Number(p['Precio Unitario'])||0,vendedor:(S.user&&(S.user.usuario||S.user.tipo))||''};
+  S.pq.push(r); S.pend.unshift(r);
+  await kvSet('pq',S.pq); await kvSet('pend',S.pend);
+  pCerrar(); pintarPend(); toast('Pendiente guardado: '+r.cliente);
+  if(navigator.onLine) syncAll();
+}
+function pintarPend(){
+  $('cPend').style.display=S.pend.length?'block':'none';
+  $('nPend').textContent='('+S.pend.length+')';
+  $('lPend').innerHTML=S.pend.map(p=>`<div class="pp"><div><b>${esc(p.nombre)}</b><div style="color:var(--m);font-size:11px">${esc(p.cliente)} · S/ ${fmt(p.precio)}</div></div><button class="btn suc" onclick="cobrarPend('${p.id}')">✔ CANCELADO</button></div>`).join('');
+}
+function cobrarPend(id){
+  const p=S.pend.find(x=>x.id===id); if(!p) return;
+  if(S.cart.some(x=>x.pendId===id)) return toast('Ya está en el carrito.');
+  const inv=S.inv.find(x=>String(x.ID||x.COD||x['Código Barras'])===p.productoId);
+  if(!inv || (Number(inv.Stock)||0)<1) return toast('No hay stock de este producto.');
+  S.cart.push({id:p.productoId,pendId:id,nombre:p.nombre,sexo:'',cant:1,precio:p.precio,stock:1});
+  $('cli').value=p.cliente; renderCart(); toast('Está en el carrito. Registre la venta.');
 }
 
 /* ---------- Ventas de hoy ---------- */
@@ -449,7 +524,7 @@ function reiniciarInactividad(){
     cerrarScanner();
     S.user = null; S.cart = [];
     renderCart();
-    ['modal','mVentas'].forEach(id => { const e = $(id); if(e) e.style.display = 'none'; });
+    ['modal','mVentas','mPend'].forEach(id => { const e = $(id); if(e) e.style.display = 'none'; });
     $('app').style.display = 'none';
     $('login').style.display = 'flex';
     $('err').textContent = 'Sesión cerrada por inactividad.';
