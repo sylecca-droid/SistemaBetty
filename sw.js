@@ -1,4 +1,4 @@
-const CACHE = 'betty-pos-v2';
+const CACHE = 'betty-pos-v3';
 const ARCHIVOS = ['./pos.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
