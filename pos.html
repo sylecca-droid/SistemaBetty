@@ -129,7 +129,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
   <div style="color:var(--m)">¿Cómo queda este producto?</div>
   <div id="pNom" style="font-weight:800;margin:6px 0 12px"></div>
   <div id="pBot1">
-    <button class="btn suc" onclick="pElegir('C')">✔ CANCELADO</button>
+    <button class="btn suc" onclick="pElegir('C')">✔ 💰COBRAR</button>
     <button class="btn" style="background:#e58a00;border-color:#e58a00;color:#fff" onclick="pElegir('P')">⏳ PENDIENTE</button>
   </div>
   <input id="pCli" placeholder="Nombre del cliente">
@@ -439,7 +439,7 @@ async function pGuardar(){
 function pintarPend(){
   $('cPend').style.display=S.pend.length?'block':'none';
   $('nPend').textContent='('+S.pend.length+')';
-  $('lPend').innerHTML=S.pend.map(p=>`<div class="pp"><div><b>${esc(p.nombre)}</b><div style="color:var(--m);font-size:11px">${esc(p.cliente)} · S/ ${fmt(p.precio)}</div></div><button class="btn suc" onclick="cobrarPend('${p.id}')">✔ CANCELADO</button></div>`).join('');
+  $('lPend').innerHTML=S.pend.map(p=>`<div class="pp"><div><b>${esc(p.nombre)}</b><div style="color:var(--m);font-size:11px">${esc(p.cliente)} · S/ ${fmt(p.precio)}</div></div><button class="btn suc" onclick="cobrarPend('${p.id}')">✔ 💰COBRAR</button></div>`).join('');
 }
 function cobrarPend(id){
   const p=S.pend.find(x=>x.id===id); if(!p) return;
