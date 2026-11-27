@@ -463,7 +463,7 @@ function abrirVentas(){
 }
 
 /* ---------- WhatsApp ---------- */
-function enviarWhatsApp(v){
+async function enviarWhatsApp(v){
   if(!v) return;
   let n = prompt('Número de WhatsApp del cliente (9 dígitos):');
   if(n === null) return;
@@ -471,31 +471,28 @@ function enviarWhatsApp(v){
   if(n.length === 11 && n.startsWith('51')) n = n.slice(2);
   if(!/^9\d{8}$/.test(n)) return toast('Ingrese un número válido de 9 dígitos (empieza con 9).');
 
-  const f = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v.fecha)).replace(',',' –');
-  const linea = '━━━━━━━━━━━━━━━━━━';
+  const w = window.open('about:blank', '_blank');   // evita el bloqueo de ventanas emergentes
+  let link = null;
+  if(navigator.onLine && !String(v.num).startsWith('L-')){
+    toast('Generando comprobante…');
+    try{
+      const r = await api({accion:'ticketpdf', sync:S.user.sync, ticket:v});
+      if(r.ok) link = r.url; else toast(r.error || 'No se pudo generar el PDF.');
+    }catch(e){ toast('No se pudo generar el PDF.'); }
+  }
 
-  const items = v.items.map(i =>
-`*${i.nombre}*
-${i.cant} x S/ ${fmt(i.precio)}  =  *S/ ${fmt(i.total)}*`).join('\n\n');
-
-  const msg =
-`*TELECOMUNICACIONES BETTY*
-_SISTEMA DE VENTAS_
-Gracias por preferirnos
-${linea}
-*VENTA N.°:* ${v.num}
-*FECHA:* ${f}
-*CLIENTE:* ${v.cliente}
-${linea}
-${items}
-${linea}
-SUBTOTAL: S/ ${fmt(v.subtotal)}
-${v.descuento > 0 ? 'DESCUENTO: - S/ ' + fmt(v.descuento) + '\n' : ''}*TOTAL: S/ ${fmt(v.total)}*
-${linea}
-*¡GRACIAS POR SU COMPRA!*`;
+  let msg;
+  if(link){
+    msg = `*TELECOMUNICACIONES BETTY*\nGracias por su compra 🙌\n\n🧾 Ticket N.° ${v.num}\n💰 Total: *S/ ${fmt(v.total)}*\n\n📄 Vea y descargue su comprobante aquí:\n${link}`;
+  } else {
+    const f = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(v.fecha)).replace(',',' –');
+    const linea = '━━━━━━━━━━━━━━━━━━';
+    const items = v.items.map(i => `*${i.nombre}*\n${i.cant} x S/ ${fmt(i.precio)}  =  *S/ ${fmt(i.total)}*`).join('\n\n');
+    msg = `*TELECOMUNICACIONES BETTY*\n_SISTEMA DE VENTAS_\n${linea}\n*VENTA N.°:* ${v.num}\n*FECHA:* ${f}\n*CLIENTE:* ${v.cliente}\n${linea}\n${items}\n${linea}\nSUBTOTAL: S/ ${fmt(v.subtotal)}\n${v.descuento > 0 ? 'DESCUENTO: - S/ ' + fmt(v.descuento) + '\n' : ''}*TOTAL: S/ ${fmt(v.total)}*\n${linea}\n*¡GRACIAS POR SU COMPRA!*`;
+  }
 
   const url = 'https://wa.me/51' + n + '?text=' + encodeURIComponent(msg);
-  if(!window.open(url, '_blank')) location.href = url;
+  if(w){ w.location.href = url; } else { location.href = url; }
 }
 
 /* ---------- Ticket ---------- */
