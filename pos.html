@@ -63,6 +63,13 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 #pCli{width:100%;height:44px;border:2px solid var(--p2);border-radius:10px;padding:0 12px;margin:8px 0;display:none}
 .pp{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #edf0f4}
 .tag{background:#fff4dd;color:#a96300;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px}
+  .tv{display:flex;gap:5px;margin-top:6px}
+.tv button{flex:1;height:28px;border:1px solid var(--b);background:#fff;border-radius:7px;font-size:11px;font-weight:800;color:#475569}
+.tv button.on{background:var(--p);border-color:var(--p);color:#fff}
+.tv button.on.my{background:#7c3aed;border-color:#6d28d9}
+.pb .my{color:#6d28d9}
+.cd{margin-top:6px;font-size:12px;font-weight:800;color:#6d28d9}
+.cd small{color:var(--m);font-weight:700}
 </style></head><body>
 
 <div id="login"><div class="lbox">
@@ -145,7 +152,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 <div id="toast"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyMkPgwNt-mu9Szqt9G_I_aN3P7o0zv56PR1cmYXyA6UlYwB68iR9RBi5943qMYHawfWg/exec";
+const API = "https://script.google.com/macros/s/AKfycbwkuHO23MSH7nxE9SVdvYc-t-hd_sRk55eFPgTVfDJOxBUaSHHrcbvj_jl6fK0BDO3FDQ/exec";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -283,10 +290,18 @@ function verPendientes(){
 }
 
 /* ---------- Productos ---------- */
+const TV = {};   // tipo elegido por producto: 'menor' | 'mayor'
+function esPantalla(p){ return String(p.Categoría||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('PANTALLA'); }
+function claveP(p){ return String(p.ID||p.COD||p['Código Barras']); }
+function tieneMayor(p){ return esPantalla(p) && Number(p.precioMayor)>0; }
+function tipoDe(p){ return tieneMayor(p) ? (TV[claveP(p)]||'menor') : ''; }
+function precioDe(p){ return tipoDe(p)==='mayor' ? Number(p.precioMayor) : (Number(p['Precio Unitario'])||0); }
+function setTipo(i,t){ TV[claveP(S.inv[i])]=t; pintarProds(); }
+
 function pintarProds(){
   const t=$('q').value.trim().toLowerCase();
   let l=S.inv.map((p,i)=>({p,i}));
-  if(t) l=l.filter(x=>[x.p.ID,x.p.COD,x.p['Código Barras'],x.p.Producto,x.p.Marca,x.p.Categoría,x.p.SEXO,x.p.Sexo].join(' ').toLowerCase().includes(t));
+  if(t) l=l.filter(x=>[x.p.ID,x.p.COD,x.p.codigoP,x.p['Código Barras'],x.p.Producto,x.p.Marca,x.p.Categoría,x.p.SEXO,x.p.Sexo].join(' ').toLowerCase().includes(t));
   $('cnt').textContent = S.inv.length+' en el equipo';
   l=l.slice(0,8);
   $('prods').innerHTML = l.length ? l.map(({p,i})=>{
@@ -294,9 +309,15 @@ function pintarProds(){
     const sx=String(p.SEXO??p.Sexo??'').trim().toUpperCase();
     const bx=sx?`<div><span class="sx ${sx==='MUJER'?'m':'h'}">${esc(sx)}</span></div>`:'';
     const img=p.Imagen?`<img src="${esc(p.Imagen)}" alt="" onerror="this.remove()">`:'📦';
+    const tp=tipoDe(p);
+    const tv=tieneMayor(p)?`<div class="tv">
+      <button class="${tp==='menor'?'on':''}" onclick="event.stopPropagation();setTipo(${i},'menor')">Menor</button>
+      <button class="${tp==='mayor'?'on my':''}" onclick="event.stopPropagation();setTipo(${i},'mayor')">Mayor</button></div>`:'';
+    const cod=p.codigoP||p.COD||'';
     return `<div class="pr" onclick="tocar(${i})"><div class="im">${img}</div><div class="pi">
-      <div class="pn">${esc(p.Producto)}</div><div class="pm">${esc(p.Marca)}</div>${bx}
-      <div class="pb"><span>S/ ${fmt(p['Precio Unitario'])}</span><span class="sk ${st<=0?'z':''}">Stock: ${st}</span></div></div></div>`;
+      <div class="pn">${esc(p.Producto)}</div><div class="pm">${esc(p.Marca)}</div>${bx}${tv}
+      <div class="pb"><span class="${tp==='mayor'?'my':''}">S/ ${fmt(precioDe(p))}</span><span class="sk ${st<=0?'z':''}">Stock: ${st}</span></div>
+      ${cod?`<div class="cd"><small>COD:</small> ${esc(cod)}</div>`:''}</div></div>`;
   }).join('') : `<div style="grid-column:1/-1;text-align:center;color:var(--m);padding:30px">${S.inv.length?'No se encontraron productos.':'Sin inventario. Conéctese a internet para descargarlo.'}</div>`;
 }
 
@@ -349,11 +370,14 @@ function procesarCodigo(cod){
 
 /* ---------- Carrito ---------- */
 function agregar(i){
-  const p=S.inv[i], st=Number(p.Stock)||0, id=String(p.ID||p.COD||p['Código Barras']);
+  const p=S.inv[i], st=Number(p.Stock)||0, id=claveP(p);
   if(st<=0) return toast('Este producto no tiene stock.');
-  const e=S.cart.find(x=>x.id===id && !x.pendId);
-  if(e){ if(e.cant+1>st) return toast('No hay más stock disponible.'); e.cant++; }
-  else S.cart.push({id,nombre:p.Producto,sexo:String(p.SEXO??p.Sexo??'').trim().toUpperCase(),cant:1,precio:Number(p['Precio Unitario'])||0,stock:st});
+  const tp=tipoDe(p), precio=precioDe(p);
+  const enCarrito=S.cart.filter(x=>x.id===id && !x.pendId).reduce((a,x)=>a+x.cant,0);
+  if(enCarrito+1>st) return toast('No hay más stock disponible.');
+  const e=S.cart.find(x=>x.id===id && !x.pendId && (x.tipo||'')===tp);
+  if(e) e.cant++;
+  else S.cart.push({id,tipo:tp,nombre:p.Producto+(tp==='mayor'?' (POR MAYOR)':''),sexo:String(p.SEXO??p.Sexo??'').trim().toUpperCase(),cant:1,precio,stock:st});
   renderCart();
 }
 function mover(i,d){ const c=S.cart[i]; if(c.pendId){ if(d<0) S.cart.splice(i,1); renderCart(); return; } c.cant+=d; if(c.cant>c.stock){c.cant=c.stock;toast('Cantidad limitada al stock.');} if(c.cant<1) S.cart.splice(i,1); renderCart(); }
