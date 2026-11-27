@@ -152,7 +152,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 <div id="toast"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwkuHO23MSH7nxE9SVdvYc-t-hd_sRk55eFPgTVfDJOxBUaSHHrcbvj_jl6fK0BDO3FDQ/exec";
+const API = "https://script.google.com/macros/s/AKfycbyA86joGrxW-txEqEZWG9U9910aibY3pUjh71Fk9OhVivfn1-Hu1_cPvlka-IGMgsnfFA/exec";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -313,7 +313,7 @@ function pintarProds(){
     const tv=tieneMayor(p)?`<div class="tv">
       <button class="${tp==='menor'?'on':''}" onclick="event.stopPropagation();setTipo(${i},'menor')">Menor</button>
       <button class="${tp==='mayor'?'on my':''}" onclick="event.stopPropagation();setTipo(${i},'mayor')">Mayor</button></div>`:'';
-    const cod=p.codigoP||p.COD||'';
+        const cod=p.codigoP||'';
     return `<div class="pr" onclick="tocar(${i})"><div class="im">${img}</div><div class="pi">
       <div class="pn">${esc(p.Producto)}</div><div class="pm">${esc(p.Marca)}</div>${bx}${tv}
       <div class="pb"><span class="${tp==='mayor'?'my':''}">S/ ${fmt(precioDe(p))}</span><span class="sk ${st<=0?'z':''}">Stock: ${st}</span></div>
