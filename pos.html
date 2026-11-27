@@ -145,7 +145,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 <div id="toast"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxVGve9gOvYJYYh4ZsHlPzAAm1nBr7fbBorLVivK2iKmj5kGiylmwpH7xTSr2CEXiRwbg/exec";
+const API = "https://script.google.com/macros/s/AKfycbyMkPgwNt-mu9Szqt9G_I_aN3P7o0zv56PR1cmYXyA6UlYwB68iR9RBi5943qMYHawfWg/exec";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -472,13 +472,17 @@ async function enviarWhatsApp(v){
   if(!/^9\d{8}$/.test(n)) return toast('Ingrese un número válido de 9 dígitos (empieza con 9).');
 
   const w = window.open('about:blank', '_blank');   // evita el bloqueo de ventanas emergentes
-  let link = null;
-  if(navigator.onLine && !String(v.num).startsWith('L-')){
+    let link = v.pdfUrl || null;   // si ya se generó antes, se reutiliza
+  if(!link && navigator.onLine && !String(v.num).startsWith('L-')){
     toast('Generando comprobante…');
     try{
       const r = await api({accion:'ticketpdf', sync:S.user.sync, ticket:v});
-      if(r.ok) link = r.url; else toast(r.error || 'No se pudo generar el PDF.');
-    }catch(e){ toast('No se pudo generar el PDF.'); }
+      if(r.ok){
+        link = r.url;
+        v.pdfUrl = link;                 // recordar el enlace
+        await kvSet('hist', S.hist);     // guardarlo en el equipo
+      } else alert('Error del servidor: ' + (r.error || 'sin detalle'));
+    }catch(e){ alert('Error de conexión: ' + (e.message || e)); }
   }
 
   let msg;
