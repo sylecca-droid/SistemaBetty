@@ -152,7 +152,7 @@ header h1{margin:0;font-size:17px;flex:1;min-width:180px}
 <div id="toast"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxLJOhb-Ef9cshwoc3zZOz5G9jlgz8xMaVDR_6onWgMsUwULKS8m8hkJU8GZIvvhjjm1w/exec";
+const API = "https://script.google.com/macros/s/AKfycbxy3W34azqiVcMhZ0OESG82RTlZDx-NiJuoVsaJLx40KPgdANdyfXgf7gIoxINiKl2a/exec";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const fmt = n => (Number(n) || 0).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -291,7 +291,7 @@ function verPendientes(){
 
 /* ---------- Productos ---------- */
 const TV = {};   // tipo elegido por producto: 'menor' | 'mayor'
-function esPantalla(p){ return String(p.catCat||p.Categoría||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('PANTALLA'); }
+function esPantalla(p){ return String(p.Producto||'').toUpperCase().includes('PANTALLA'); }
 function claveP(p){ return String(p.ID||p.COD||p['Código Barras']); }
 function tieneMayor(p){ return esPantalla(p) && Number(p.precioMayor)>0; }
 function tipoDe(p){ return tieneMayor(p) ? (TV[claveP(p)]||'menor') : ''; }
